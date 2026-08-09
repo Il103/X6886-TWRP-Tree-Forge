@@ -72,5 +72,20 @@
     "build_commands_forbidden": true,
     "software_identity_must_come_from_dump": true,
     "device_report_is_hardware_evidence_only": true
-  }
+  },
+  "crypto": {
+    "allow_incomplete_closure": true,
+    "services": [
+        "android.hardware.security.keymint-service.mediatek",
+        "android.hardware.security.sharedsecret-service.mediatek",
+        "android.hardware.security.secureclock-service.mediatek",
+        "android.hardware.gatekeeper-service.mediatek"
+    ],
+    "dependencies": [
+        "libkeymint",
+        "libkeymaster_portable",
+        "libcppbor",
+        "libcppcose",
+        "libsoftkeymasterdevice"
+    ]
 }
