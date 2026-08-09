@@ -93,9 +93,14 @@ class Validator:
                         mismatches.append(item["to"])
                 else:
                     mismatches.append(item["to"])
-            self.require(checked > 0 and not mismatches, "source-copied-hashes", "provenance",
-                         f"All {checked} copied files match the Android 16 dump byte-for-byte",
-                         ", ".join(mismatches), 5)
+            if not mismatches:
+                self.require(checked > 0, "source-copied-hashes", "provenance",
+                             f"All {checked} copied files match the Android 16 dump byte-for-byte",
+                             "", 5)
+            else:
+                self.require(False, "source-copied-hashes", "provenance",
+                             f"{len(mismatches)} of {checked} copied files differ from the Android 16 dump",
+                             ", ".join(mismatches), 5)
         else:
             self.add("source-copied-hashes", "provenance", "WARN",
                      "Dump root was not supplied to the validator; copied-file hashes were not rechecked",
@@ -327,7 +332,10 @@ class Validator:
                      "No token or private network address is present in generated text files",
                      ", ".join(findings), 5)
 
-        workflow = Path(__file__).resolve().parents[1] / "workflow/generate-tree.yml"
+        repo_root = Path(__file__).resolve().parents[1]
+        workflow = repo_root / "workflow/generate-tree.yml"
+        if not workflow.is_file():
+            workflow = repo_root / ".github/workflows/generate-tree.yml"
         if workflow.is_file():
             wf = read_text(workflow)
             forbidden = []

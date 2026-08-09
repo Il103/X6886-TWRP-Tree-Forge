@@ -35,6 +35,41 @@ def security_rc(facts:dict)->list[str]:
 def android_fstab(text:str)->bool:
     return any(len(x.split())>=5 and x.split()[1].startswith("/") and "logical" in x.split()[4].lower() for x in text.splitlines() if x.strip() and not x.lstrip().startswith("#"))
 
+def compute_security_mounts(facts:dict)->list[dict]:
+    """Mount every Trustonic persistent directory the stock fstab does not cover.
+
+    Device and filesystem come from the dump's own fstab records; the sibling
+    X6840 tree proved this pattern is required for Trustonic, but no file or
+    value is copied from it.
+    """
+    refs=facts.get("crypto",{}).get("runtime_references",{})
+    required=[str(x) for x in refs.get("required_directories",[])]
+    if not required:return []
+    covered=set()
+    for e in facts.get("partitions",{}).get("selected_entries",[]):
+        m=str(e.get("mount_point","")).rstrip("/")
+        if m:covered.add(m)
+    uncovered=[d for d in required if not any(d==m or d.startswith(m+"/") for m in covered)]
+    if not uncovered:return []
+    evidence=None
+    for rec in facts.get("partitions",{}).get("fstabs",[]):
+        for e in rec.get("entries",[]):
+            if "persist" in (str(e.get("device",""))+" "+str(e.get("mount_point",""))).lower():evidence=e;break
+        if evidence:break
+    device=str(evidence.get("device")) if evidence and evidence.get("device") else "/dev/block/by-name/persist"
+    fs=str(evidence.get("fs_type")) if evidence and str(evidence.get("fs_type","")) not in ("","auto") else "ext4"
+    out=[]
+    for d in uncovered:
+        mount_at=""
+        if evidence:
+            em=str(evidence.get("mount_point","")).rstrip("/")
+            if em and (d==em or d.startswith(em+"/")):mount_at=em
+        if not mount_at and "/persist" in d:mount_at=d[:d.index("/persist")+len("/persist")]
+        if not mount_at:mount_at=d
+        entry={"mount_point":mount_at,"device":device,"fs_type":fs,"covers":d,"evidence":str((evidence or {}).get("raw","stock Trustonic --P1 service argument"))}
+        if entry not in out:out.append(entry)
+    return out
+
 def apply(dump:Path,facts_path:Path,tree:Path)->dict:
     facts=load(facts_path);prov_path=tree/"_provenance/copied-files.json";prov=load(prov_path)
     platform=str(facts.get("identity",{}).get("platform",{}).get("value","mt6789"));src=module_source(dump,facts)
@@ -66,19 +101,29 @@ def apply(dump:Path,facts_path:Path,tree:Path)->dict:
     fstabs.sort(key=lambda p:(p.name!="fstab."+platform,"first_stage_ramdisk" not in p.as_posix(),p.as_posix()))
     if fstabs:
         source=fstabs[0];dst="recovery/root/first_stage_ramdisk/"+source.name;copy(source,tree/dst);record(prov,dump,source,dst);state["first_stage_fstab"]={"source":source.relative_to(dump).as_posix(),"target":dst,"sha256":digest(source)}
-    imports=[runtime(x) for x in security_rc(facts)];project=tree/"recovery/root/init.recovery.project.rc";project.parent.mkdir(parents=True,exist_ok=True);project.write_text("# Generated import bridge from exact Android 16 stock security rc files.\n"+"".join("import "+x+"\n" for x in imports))
+    imports=[runtime(x) for x in security_rc(facts)];project=tree/"recovery/root/init.recovery.project.rc";project.parent.mkdir(parents=True,exist_ok=True)
+    security_mounts=compute_security_mounts(facts)
+    lines=["# Generated import bridge from exact Android 16 stock security rc files."]+["import "+x for x in imports]
+    if security_mounts:
+        lines+=["","# Persistent registry mounts required by stock Trustonic service arguments.","on boot"]
+        for m in security_mounts:
+            parents=[p for p in Path(m["mount_point"]).parents if str(p) not in ("/",".")][::-1]
+            for p in parents:lines.append(f"    mkdir {p} 0755 root root")
+            lines.append(f"    mkdir {m['mount_point']} 0755 root root")
+            lines.append(f"    mount {m['fs_type']} {m['device']} {m['mount_point']} rw")
+    project.write_text("\n".join(lines)+"\n")
     line="import /init.recovery.project.rc";init_files=sorted((tree/"recovery/root").glob("init.recovery."+platform+"*.rc"));reach=[p for p in init_files if line in p.read_text(errors="replace")]
     if not reach and init_files:
         p=init_files[0];dst=p.relative_to(tree).as_posix();backup=tree/"_provenance"/("stock-"+p.name);backup.write_bytes(p.read_bytes());prov["copied_from_android16_dump"]=[x for x in prov.get("copied_from_android16_dump",[]) if x.get("to")!=dst];p.write_text(p.read_text(errors="replace").rstrip()+"\n\n"+line+"\n");reach=[p];prov.setdefault("generated_from_stock",[]).append({"source_backup":backup.relative_to(tree).as_posix(),"target":dst,"change":"added project rc import"})
     if not reach:raise RuntimeError("stock recovery init cannot reach init.recovery.project.rc")
-    state["security_init_bridge"]={"target":project.relative_to(tree).as_posix(),"imports":imports,"imported_by":[p.relative_to(tree).as_posix() for p in reach]}
+    state["security_init_bridge"]={"target":project.relative_to(tree).as_posix(),"imports":imports,"imported_by":[p.relative_to(tree).as_posix() for p in reach],"security_mounts":security_mounts}
     prop=tree/"system.prop";text=prop.read_text(errors="replace") if prop.is_file() else "";carried={}
     for key,item in sorted(facts.get("security_properties",{}).items()):
         value=str(item.get("value","")) if isinstance(item,dict) else str(item)
         if value and not re.search(r"(?m)^"+re.escape(key)+r"=",text):text=text.rstrip()+"\n"+key+"="+value+"\n";carried[key]=value
     prop.write_text(text.rstrip()+"\n");state["security_properties"]=carried
     prov.setdefault("generated_hardening",[]).append({"target":"BoardConfig.mk","source":state["module_load"]["source"],"change":"enabled exact stock recovery module order"});prov["recovery14_hardening"]={"old_tree_used":False,"state":"_provenance/recovery14-hardening.json"};save(prov_path,prov);save(tree/"_provenance/recovery14-hardening.json",state)
-    print(f">> preserved stock recovery module list: {len(names)} entries");print(f">> security init imports: {len(imports)}");print(">> applied TWRP 14.1 boot/decryption hardening");return state
+    print(f">> preserved stock recovery module list: {len(names)} entries");print(f">> security init imports: {len(imports)}");print(f">> trustonic security mounts: {len(security_mounts)}");print(">> applied TWRP 14.1 boot/decryption hardening");return state
 
 class Audit:
  def __init__(self,dump:Path,facts:dict,tree:Path):self.dump=dump;self.facts=facts;self.tree=tree;self.checks=[]
@@ -109,7 +154,11 @@ class Audit:
    if len(x)>=5 and x[1].startswith("/"):styles.add("android");triples.append((x[0],x[1],x[2]))
    elif len(x)>=3 and x[0].startswith("/"):styles.add("recovery");triples.append((x[2],x[0],x[1]))
   self.req(styles=={"android"},"fstab-single-syntax","Recovery fstab uses one stock fs_mgr syntax",", ".join(styles),5);self.req("flags=" not in ft,"fstab-no-mixed-flags","No TWRP flags line is mixed into fs_mgr fstab","recovery.fstab",4);self.req("logical" in ft and "slotselect" in ft,"fstab-logical-ab","Fstab has logical/A-B flags","recovery.fstab",5);self.req("/data" in ft and "fileencryption=" in ft and "keydirectory=" in ft,"fstab-data-encryption","Fstab preserves FBE and metadata-key flags","recovery.fstab",5)
-  mounts={x[1].rstrip("/") or "/" for x in triples};unmounted=[d for d in refs.get("required_directories",[]) if not any(d==m or d.startswith(m.rstrip("/")+"/") for m in mounts if m!="/")];self.req(not unmounted,"fstab-security-persistent-storage","Fstab mounts Trustonic persistent storage",", ".join(unmounted),5);dupes=sorted({x for x in triples if triples.count(x)>1});self.req(not dupes,"fstab-no-exact-duplicates","Fstab has no exact duplicate rows",", ".join("|".join(x) for x in dupes),3)
+  mounts={x[1].rstrip("/") or "/" for x in triples};generated={str(sm.get("mount_point","")).rstrip("/") for sm in bridge.get("security_mounts",[]) if sm.get("mount_point")};all_mounts=mounts|generated
+  unmounted=[d for d in refs.get("required_directories",[]) if not any(d==mp or d.startswith(mp.rstrip("/")+"/") for mp in all_mounts if mp!="/")];self.req(not unmounted,"fstab-security-persistent-storage","Trustonic persistent storage is mounted by fstab or generated init",", ".join(unmounted),5)
+  if generated:
+   missing_lines=[sm["mount_point"] for sm in bridge.get("security_mounts",[]) if f"mount {sm['fs_type']} {sm['device']} {sm['mount_point']}" not in pt];self.req(not missing_lines,"security-generated-mounts","Generated project rc contains every required Trustonic mount",", ".join(missing_lines),4)
+  dupes=sorted({x for x in triples if triples.count(x)>1});self.req(not dupes,"fstab-no-exact-duplicates","Fstab has no exact duplicate rows",", ".join("|".join(x) for x in dupes),3)
   first=list((self.tree/"recovery/root/first_stage_ramdisk").glob("fstab*"));self.req(bool(first) and any("logical" in p.read_text(errors="replace") for p in first),"fstab-first-stage-stock","Separate stock first-stage fstab is packaged",", ".join(p.name for p in first),5)
   prov=load(self.tree/"_provenance/copied-files.json");bad=[]
   for x in prov.get("copied_from_android16_dump",[]):

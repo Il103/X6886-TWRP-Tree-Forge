@@ -3,8 +3,9 @@
 
 This wrapper reuses Tree Forge's Collector while correcting two Android 16
 cases: bare logical partition names in fs_mgr fstab, and the authority of
-modules.load.recovery over normal-boot module lists. No value comes from an
-older recovery tree.
+modules.load.recovery over normal-boot module lists. It also carries the
+init-time KeyMint/Trustonic runtime-reference evidence from the hydration
+report into facts.json. No value comes from an older recovery tree.
 """
 from __future__ import annotations
 
@@ -109,8 +110,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     Collector.parse_fstab = staticmethod(parse_fstab_a16)
     Collector.collect_modules = collect_modules_a16
-    collector = Collector(Path(args.dump).resolve(), load_json(args.config), args.source_url, args.source_branch)
+    dump = Path(args.dump).resolve()
+    collector = Collector(dump, load_json(args.config), args.source_url, args.source_branch)
     facts = collector.collect()
+    hydration_path = dump / "crypto_hydration.json"
+    if hydration_path.is_file():
+        hydration = load_json(hydration_path)
+        runtime_refs = hydration.get("runtime_references")
+        if isinstance(runtime_refs, dict):
+            facts.setdefault("crypto", {})["runtime_references"] = runtime_refs
     facts["security_properties"] = {
         key: {"value": collector.props[key], "source": collector.prop_source.get(key, "unknown") + ":" + key, "method": "direct"}
         for key in SECURITY_PROPERTY_NAMES if collector.props.get(key)
@@ -123,6 +131,10 @@ def main(argv: list[str] | None = None) -> int:
     selected = facts.get("kernel", {}).get("modules", {}).get("recovery_load_file")
     count = len(facts.get("kernel", {}).get("modules", {}).get("recovery_load_order", []))
     print(f">> recovery module order: {selected or 'missing'} ({count} entries)")
+    refs = facts.get("crypto", {}).get("runtime_references", {})
+    if refs:
+        print(f">> security runtime refs carried: {len(refs.get('resolved', {}))} resolved, "
+              f"{len(refs.get('unresolved', []))} unresolved")
     for message in facts["collection"]["warnings"]:
         print("::warning::" + message)
     for message in facts["collection"]["errors"]:
