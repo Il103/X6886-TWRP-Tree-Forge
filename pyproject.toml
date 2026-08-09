@@ -1,0 +1,17 @@
+[project]
+name = "x6886-twrp-tree-forge"
+version = "0.2.0"
+description = "Evidence-driven TWRP 14.1 tree generator with stock Android 16 KeyMint closure"
+requires-python = ">=3.10"
+authors = [{name = "B E R U"}]
+license = {text = "Apache-2.0"}
+dependencies = []
+
+[project.scripts]
+twrp-tree-forge = "treeforge.cli:main"
+
+[tool.setuptools]
+packages = ["treeforge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
