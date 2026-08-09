@@ -21,7 +21,8 @@ def cmd(a:list[str],cwd:Path,data:bytes|None=None):
 def materialize(root:Path,rel:str,index:set[str])->Path|None:
     rel=rel.replace("\\","/").lstrip("/");p=root/rel
     if rel not in index and not p.is_file():return None
-    p.parent.mkdir(parents=True,exist_ok=True)
+    try: p.parent.mkdir(parents=True,exist_ok=True)
+    except OSError: pass
     if p.is_file() and not pointer(p):return p
     if (root/".git").is_dir() and shutil.which("git"):
         cmd(["git","lfs","pull","--include="+rel,"--exclude="],root)
@@ -32,7 +33,12 @@ def materialize(root:Path,rel:str,index:set[str])->Path|None:
             if data[:80].startswith(POINTER):
                 smudged=cmd(["git","lfs","smudge"],root,data)
                 if smudged.returncode==0 and smudged.stdout and not smudged.stdout[:80].startswith(POINTER):data=smudged.stdout
-            p.write_bytes(data)
+            try:
+                if p.is_symlink(): p.unlink() # هنا بنمسح الاختصار لو بايظ عشان نكتب مكانه
+                p.write_bytes(data)
+            except OSError as e:
+                print(f"::warning::Skipping {rel} due to file system error: {e}")
+                return None
     return p if p.is_file() and not pointer(p) else None
 
 def candidates(runtime:str,index:set[str])->list[str]:
@@ -83,8 +89,10 @@ def collect(root:Path,report_path:Path)->dict:
         base=root/prefix
         if base.is_dir():
             for p in base.rglob("*.rc"):
-                text="" if pointer(p) else p.read_text(errors="replace")
-                if any(t in (p.name+"\n"+text).lower() for t in TERMS):rc.add(p.relative_to(root).as_posix())
+                try:
+                    text="" if pointer(p) else p.read_text(errors="replace")
+                    if any(t in (p.name+"\n"+text).lower() for t in TERMS):rc.add(p.relative_to(root).as_posix())
+                except OSError: pass
     required:set[str]=set();optional:set[str]=set();services:set[str]=set();directories:set[str]=set();scanned:set[str]=set();q=deque(sorted(rc))
     while q:
         rel=q.popleft()
@@ -92,7 +100,9 @@ def collect(root:Path,report_path:Path)->dict:
         p=materialize(root,rel,index)
         if not p:required.add("/"+rel);continue
         scanned.add(rel);files.setdefault(rel,{"path":rel,"role":runtime_target_kind(rel)})
-        a,b,c,d=parse_rc(p.read_text(errors="replace"));required|=a;optional|=b;services|=c;directories|=d
+        try: text = p.read_text(errors="replace")
+        except OSError: continue
+        a,b,c,d=parse_rc(text);required|=a;optional|=b;services|=c;directories|=d
         for x in sorted(a|b):
             if x.endswith(".rc"):
                 choices=candidates(x,index)
@@ -134,10 +144,14 @@ def collect(root:Path,report_path:Path)->dict:
     copy=[]
     for rel in sorted(files):
         p=root/rel
-        if p.is_file() and not pointer(p):
-            item=dict(files[rel]);item.update(path=rel,bytes=p.stat().st_size);copy.append(item)
+        try:
+            if p.is_file() and not pointer(p):
+                item=dict(files[rel]);item.update(path=rel,bytes=p.stat().st_size);copy.append(item)
+        except OSError: pass
     report.update(schema_version=2,strategy="stock-keymint-readelf-and-init-runtime-closure",copy_files=copy,dependencies=dependencies,unresolved_vendor_libraries=sorted(unresolved_libs),lfs_pointers=pointers,closure_count=len(copy),runtime_references={"security_init_rc":sorted(scanned),"required":sorted(required),"resolved":resolved,"unresolved":sorted(unresolved),"optional_unresolved":sorted(optional_unresolved),"service_binaries":sorted(services),"required_directories":sorted(directories),"registry_artifacts":sorted(x for x in resolved if x.endswith(".drbin") or "/mcRegistry/" in x)})
-    report_path.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n");return report
+    try: report_path.write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
+    except OSError as e: print(f"::warning::Failed to write report: {e}")
+    return report
 
 def main()->int:
     ap=argparse.ArgumentParser();ap.add_argument("--dump",required=True);ap.add_argument("--report",required=True);a=ap.parse_args();r=collect(Path(a.dump).resolve(),Path(a.report).resolve());refs=r["runtime_references"]
