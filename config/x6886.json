@@ -1,91 +1,92 @@
 {
-  "schema_version": 1,
-  "maintainer": "B E R U",
-  "recovery": {
-    "name": "TWRP",
-    "manifest_repo": "https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git",
-    "manifest_branch": "twrp-14.1",
-    "output_branch": "twrp-14.1-a16",
-    "stock_android": "16",
-    "orangefox_stage": false
-  },
-  "device": {
-    "manufacturer": "INFINIX",
-    "brand": "Infinix",
-    "model": "Infinix X6886",
-    "marketing_name": "Infinix HOT 60 Pro+",
-    "codename": "x6886",
-    "stock_device": "Infinix-X6886",
-    "stock_product": "X6886-OP",
-    "stock_board": "Infinix-X6886",
-    "platform": "mt6789",
-    "soc": "Helio G200",
-    "cpu_model": "MT6789V/T",
-    "android_release": "16",
-    "api_level": 36
-  },
-  "architecture": {
-    "primary": "arm64",
-    "abi": "arm64-v8a",
-    "variant": "armv8-2a",
-    "big_core": "cortex-a76",
-    "little_core": "cortex-a55",
-    "machine": "aarch64"
-  },
-  "display": {
-    "width": 1080,
-    "height": 2400,
-    "density": 420,
-    "xdpi": 388,
-    "ydpi": 388,
-    "touch_max_x": 2401,
-    "touch_max_y": 1081,
-    "refresh_rates_hz": [60, 90, 120, 144],
-    "panel": "nt37706a_fhdp_dsi_vdo_dsc_boe_boe_144hz_x6886",
-    "orientation": "portrait",
-    "twrp_theme": "portrait_hdpi"
-  },
-  "kernel": {
-    "release_prefix": "6.12.38-android16-5-",
-    "version": "6.12.38",
-    "cmdline_from_live_device": "rcu_nocbs=all rcutree.enable_rcu_lazy=1 rcupdate.rcu_cpu_stall_cputime=1 console=ttynull stack_depot_disable=on cgroup_disable=pressure kasan.stacktrace=off kvm-arm.mode=protected console=tty0 root=/dev/ram loglevel=8 8250.nr_uarts=4 transparent_hugepage=never vmalloc=400M swiotlb=noforce android_arch_task_struct_size=512 firmware_class.path=/vendor/firmware,/odm/firmware pelt=8 loop.max_part=7 printk.devkmsg=on gpt=1 ufshcd_core.poll_queues=0 has_battery_removed=0 PMIC_UVLO=NoUVLO usb2jtag_mode=0 root=/dev/ram bootopt=64S3,32N2,64N2 log_buf_len=2m mtk_printk_ctrl.disable_uart=1 sfi=0x00000000 ramoops.mem_address=0x48090000 ramoops.mem_size=0xe0000 ramoops.pmsg_size=0x80000 ramoops.console_size=0x40000 tkv=9653190656"
-  },
-  "hardware": {
-    "storage": "UFS 2.2",
-    "ram": "8 GB LPDDR4X",
-    "touch_input": "mtk-tpd",
-    "fingerprint": "goodix_fp",
-    "wifi": "CONSYS_MT6789",
-    "sound": "mt6789mt6366",
-    "gpu": "Mali-G57 MC2"
-  },
-  "source": {
-    "name": "Device Info HW Report",
-    "captured_at": "2026-08-08T19:54:28Z",
-    "sha256": "4fb75064c74cac098e2a5da44bd8f4f9a2b26781e988e0c2859f318b37823fc4",
-    "published_raw": false,
-    "privacy_note": "The raw report is intentionally not committed because it contains local IP/session data. Only recovery-relevant hardware facts are retained."
-  },
-  "policy": {
-    "old_tree_inputs_forbidden": true,
-    "orangefox_content_forbidden": true,
-    "build_commands_forbidden": true,
-    "software_identity_must_come_from_dump": true,
-    "device_report_is_hardware_evidence_only": true
-  },
-  "crypto": {
-    "allow_incomplete_closure": true,
-    "services": [
-        "android.hardware.security.keymint-service.mediatek",
-        "android.hardware.security.sharedsecret-service.mediatek",
-        "android.hardware.security.secureclock-service.mediatek",
-        "android.hardware.gatekeeper-service.mediatek"
-    ],
-    "dependencies": [
-        "libkeymint",
-        "libkeymaster_portable",
-        "libcppbor",
-        "libcppcose",
-        "libsoftkeymasterdevice"
-    ]
+    "schema_version": 1,
+    "maintainer": "B E R U",
+    "recovery": {
+          "name": "TWRP",
+          "manifest_repo": "https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git",
+          "manifest_branch": "twrp-14.1",
+          "output_branch": "twrp-14.1-a16",
+          "stock_android": "16",
+          "orangefox_stage": false
+    },
+    "device": {
+          "manufacturer": "INFINIX",
+          "brand": "Infinix",
+          "model": "Infinix X6886",
+          "marketing_name": "Infinix HOT 60 Pro+",
+          "codename": "x6886",
+          "stock_device": "Infinix-X6886",
+          "stock_product": "X6886-OP",
+          "stock_board": "Infinix-X6886",
+          "platform": "mt6789",
+          "soc": "Helio G200",
+          "cpu_model": "MT6789V/T",
+          "android_release": "16",
+          "api_level": 36
+    },
+    "architecture": {
+          "primary": "arm64",
+          "abi": "arm64-v8a",
+          "variant": "armv8-2a",
+          "big_core": "cortex-a76",
+          "little_core": "cortex-a55",
+          "machine": "aarch64"
+    },
+    "display": {
+          "width": 1080,
+          "height": 2400,
+          "density": 420,
+          "xdpi": 388,
+          "ydpi": 388,
+          "touch_max_x": 2401,
+          "touch_max_y": 1081,
+          "refresh_rates_hz": [60, 90, 120, 144],
+          "panel": "nt37706a_fhdp_dsi_vdo_dsc_boe_boe_144hz_x6886",
+          "orientation": "portrait",
+          "twrp_theme": "portrait_hdpi"
+    },
+    "kernel": {
+          "release_prefix": "6.12.38-android16-5-",
+          "version": "6.12.38",
+          "cmdline_from_live_device": "rcu_nocbs=all rcutree.enable_rcu_lazy=1 rcupdate.rcu_cpu_stall_cputime=1 console=ttynull stack_depot_disable=on cgroup_disable=pressure kasan.stacktrace=off kvm-arm.mode=protected console=tty0 root=/dev/ram loglevel=8 8250.nr_uarts=4 transparent_hugepage=never vmalloc=400M swiotlb=noforce android_arch_task_struct_size=512 firmware_class.path=/vendor/firmware,/odm/firmware pelt=8 loop.max_part=7 printk.devkmsg=on gpt=1 ufshcd_core.poll_queues=0 has_battery_removed=0 PMIC_UVLO=NoUVLO usb2jtag_mode=0 root=/dev/ram bootopt=64S3,32N2,64N2 log_buf_len=2m mtk_printk_ctrl.disable_uart=1 sfi=0x00000000 ramoops.mem_address=0x48090000 ramoops.mem_size=0xe0000 ramoops.pmsg_size=0x80000 ramoops.console_size=0x40000 tkv=9653190656"
+    },
+    "hardware": {
+          "storage": "UFS 2.2",
+          "ram": "8 GB LPDDR4X",
+          "touch_input": "mtk-tpd",
+          "fingerprint": "goodix_fp",
+          "wifi": "CONSYS_MT6789",
+          "sound": "mt6789mt6366",
+          "gpu": "Mali-G57 MC2"
+    },
+    "source": {
+          "name": "Device Info HW Report",
+          "captured_at": "2026-08-08T19:54:28Z",
+          "sha256": "4fb75064c74cac098e2a5da44bd8f4f9a2b26781e988e0c2859f318b37823fc4",
+          "published_raw": false,
+          "privacy_note": "The raw report is intentionally not committed because it contains local IP/session data. Only recovery-relevant hardware facts are retained."
+    },
+    "policy": {
+          "old_tree_inputs_forbidden": true,
+          "orangefox_content_forbidden": true,
+          "build_commands_forbidden": true,
+          "software_identity_must_come_from_dump": true,
+          "device_report_is_hardware_evidence_only": true
+    },
+    "crypto": {
+          "allow_incomplete_closure": true,
+          "services": [
+                  "android.hardware.security.keymint-service.mediatek",
+                  "android.hardware.security.sharedsecret-service.mediatek",
+                  "android.hardware.security.secureclock-service.mediatek",
+                  "android.hardware.gatekeeper-service.mediatek"
+          ],
+          "dependencies": [
+                  "libkeymint",
+                  "libkeymaster_portable",
+                  "libcppbor",
+                  "libcppcose",
+                  "libsoftkeymasterdevice"
+          ]
+    }
 }
